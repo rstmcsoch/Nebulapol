@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#03050c" />
+  <title>NEBULA — Hand-Controlled Particle Universe</title>
+  <style>
+    :root {
+      --bg-deep: #03050c;
+      --glass-bg: rgba(10, 16, 34, 0.76);
+      --glass-border: rgba(100, 210, 255, 0.22);
+      --glass-highlight: rgba(168, 85, 247, 0.28);
+      --accent-cyan: #22d3ee;
+      --accent-blue: #3b82f6;
+      --accent-violet: #a855f7;
+      --accent-magenta: #ec4899;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-deep);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+    }
+
+    /* Main Fullscreen Particle Canvas */
+    #universeCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+      background: radial-gradient(circle at 50% 50%, #091026 0%, #040713 55%, #020308 100%);
+    }
+
+    /* Ambient Vignette Overlay */
+    .vignette-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 55%, rgba(2, 4, 12, 0.72) 100%);
+    }
+
+    /* Top HUD Bar */
+    .top-hud {
+      position: fixed;
+      top: calc(12px + var(--safe-top));
+      left: calc(12px + var(--safe-left));
+      right: calc(12px + var(--safe-right));
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: auto;
+    }
+
+    .glass-pill {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 8px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--text-main);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      min-height: 44px;
+    }
+
+    .brand-pill {
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, rgba(14, 24, 52, 0.85), rgba(28, 16, 54, 0.85));
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan);
+    }
+
+    /* Status Indicator Dot States */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.25s ease, box-shadow 0.25s ease;
+      flex-shrink: 0;
+    }
+    .status-dot.active {
+      background: var(--accent-emerald);
+      box-shadow: 0 0 12px var(--accent-emerald);
+      animation: pulseDot 2s infinite;
+    }
+    .status-dot.loading {
+      background: var(--accent-amber);
+      box-shadow: 0 0 12px var(--accent-amber);
+      animation: pulseDot 1s infinite;
+    }
+    .status-dot.error {
+      background: var(--accent-red);
+      box-shadow: 0 0 12px var(--accent-red);
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.28); opacity: 0.72; }
+    }
+
+    /* Gesture Readout Pill */
+    .gesture-pill {
+      border-color: rgba(168, 85, 247, 0.4);
+      background: linear-gradient(135deg, rgba(20, 16, 42, 0.82), rgba(10, 22, 46, 0.82));
+    }
+    .gesture-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .gesture-name {
+      font-weight: 700;
+      color: #e9d5ff;
+      text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+    }
+
+    /* Touch Buttons */
+    .hud-btn {
+      appearance: none;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: var(--text-main);
+      border-radius: 999px;
+      min-height: 46px;
+      padding: 0 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .hud-btn:active {
+      transform: scale(0.95);
+    }
+
+    .hud-btn.primary {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(59, 130, 246, 0.3));
+      border-color: rgba(34, 211, 238, 0.55);
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.2);
+    }
+
+    .hud-btn.danger {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fecaca;
+    }
+
+    .hud-btn.active-toggle {
+      background: rgba(34, 211, 238, 0.22);
+      border-color: var(--accent-cyan);
+      color: #cffafe;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+    }
+
+    /* Collapsible Control Drawer */
+    .control-drawer {
+      position: fixed;
+      top: calc(68px + var(--safe-top));
+      right: calc(12px + var(--safe-right));
+      width: min(360px, calc(100vw - 24px));
+      max-height: calc(100vh - 96px - var(--safe-top) - var(--safe-bottom));
+      overflow-y: auto;
+      z-index: 25;
+      background: rgba(8, 13, 28, 0.86);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(100, 210, 255, 0.25);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transform-origin: top right;
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .control-drawer.closed {
+      opacity: 0;
+      transform: scale(0.92) translateY(-10px);
+      pointer-events: none;
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .drawer-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+    }
+
+    .control-section {
+      margin-bottom: 16px;
+    }
+
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.83rem;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .control-value {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Touch-Friendly Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 34px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.8);
+      border: 2px solid #ffffff;
+      margin-top: -10px;
+    }
+
+    /* Theme Grid */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .theme-btn {
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text-main);
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-btn.active {
+      border-color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.16);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.22);
+    }
+
+    .theme-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Toggle Rows in Drawer */
+    .toggle-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .toggle-row-btn {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .toggle-row-btn.on {
+      border-color: rgba(34, 211, 238, 0.5);
+      background: rgba(34, 211, 238, 0.14);
+    }
+
+    .toggle-pill-indicator {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+    }
+
+    .toggle-row-btn.on .toggle-pill-indicator {
+      background: var(--accent-cyan);
+      color: #020617;
+    }
+
+    /* Picture-in-Picture (PiP) Camera & Skeleton Container */
+    .pip-container {
+      position: fixed;
+      bottom: calc(16px + var(--safe-bottom));
+      right: calc(16px + var(--safe-right));
+      width: clamp(148px, 24vw, 220px);
+      aspect-ratio: 4 / 3;
+      border-radius: 16px;
+      overflow: hidden;
+      z-index: 18;
+      background: rgba(4, 8, 20, 0.85);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 20px rgba(34, 211, 238, 0.15);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .pip-container.hidden {
+      opacity: 0;
+      transform: translateY(20px) scale(0.9);
+      pointer-events: none;
+    }
+
+    #webcamVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block;
+      opacity: 0.72;
+    }
+
+    #skeletonCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .pip-badge {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(2, 6, 23, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #cbd5e1;
+      pointer-events: none;
+    }
+
+    /* Quick Bottom Gesture Legend Bar (Mobile/Tablet Friendly) */
+    .gesture-bar {
+      position: fixed;
+      bottom: calc(16px + var(--safe-bottom));
+      left: calc(16px + var(--safe-left));
+      z-index: 15;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: calc(100vw - 260px);
+      pointer-events: none;
+    }
+
+    .gesture-chip {
+      background: rgba(8, 14, 30, 0.68);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .gesture-chip.active {
+      border-color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.2);
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.3);
+      transform: translateY(-2px);
+    }
+
+    /* Welcome & Diagnostic Modal Screen */
+    .welcome-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(circle at 50% 30%, rgba(12, 22, 54, 0.78) 0%, rgba(3, 5, 12, 0.92) 100%);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      overflow-y: auto;
+      transition: opacity 0.45s ease, visibility 0.45s ease;
+    }
+
+    .welcome-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .welcome-card {
+      width: min(680px, 100%);
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+      background: rgba(9, 15, 32, 0.88);
+      border: 1px solid rgba(34, 211, 238, 0.32);
+      border-radius: 28px;
+      padding: clamp(22px, 4vw, 36px);
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(34, 211, 238, 0.12);
+      text-align: center;
+    }
+
+    .cosmic-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      color: var(--accent-cyan);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .welcome-title {
+      font-size: clamp(1.65rem, 4.2vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #ffffff 0%, #67e8f9 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .welcome-subtitle {
+      font-size: clamp(1rem, 2.2vw, 1.2rem);
+      color: #cbd5e1;
+      font-weight: 400;
+      margin-bottom: 22px;
+    }
+
+    .gesture-guide-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 10px;
+      text-align: left;
+      margin-bottom: 22px;
+    }
+
+    .guide-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 11px 13px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .guide-emoji {
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+
+    .guide-text strong {
+      display: block;
+      font-size: 0.84rem;
+      color: #f1f5f9;
+      margin-bottom: 2px;
+    }
+
+    .guide-text span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+      display: block;
+    }
+
+    .cta-button {
+      appearance: none;
+      width: 100%;
+      max-width: 380px;
+      min-height: 58px;
+      border-radius: 999px;
+      border: 1px solid rgba(103, 232, 249, 0.7);
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(34, 211, 238, 0.45), 0 10px 25px rgba(0, 0, 0, 0.5);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .cta-button:active {
+      transform: scale(0.97);
+    }
+
+    .cta-button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .secondary-cta {
+      margin-top: 10px;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e2e8f0;
+      min-height: 46px;
+      padding: 0 20px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .privacy-note {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 0.76rem;
+      color: #94a3b8;
+      line-height: 1.45;
+      text-align: left;
+    }
+
+    /* Diagnostic / Error Box inside Welcome Card */
+    .diagnostic-box {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fecaca;
+      text-align: left;
+      font-size: 0.83rem;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .diagnostic-box.visible {
+      display: block;
+    }
+
+    .diagnostic-box h4 {
+      color: #fca5a5;
+      font-size: 0.92rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .diagnostic-box ol {
+      margin-left: 18px;
+      margin-top: 6px;
+      color: #f1f5f9;
+    }
+
+    .diagnostic-box li {
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 640px) {
+      .gesture-bar {
+        display: none;
+      }
+      .pip-container {
+        width: 132px;
+        bottom: calc(12px + var(--safe-bottom));
+        right: calc(12px + var(--safe-right));
+      }
+      .top-hud {
+        gap: 6px;
+      }
+      .glass-pill {
+        padding: 6px 11px;
+        font-size: 0.78rem;
+        min-height: 40px;
+      }
+      .hud-btn {
+        padding: 0 12px;
+        font-size: 0.78rem;
+        min-height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen Interactive Particle Canvas -->
+  <canvas id="universeCanvas"></canvas>
+  <div class="vignette-overlay"></div>
+
+  <!-- Top HUD Bar -->
+  <header class="top-hud">
+    <div class="hud-group">
+      <div class="glass-pill brand-pill">
+        <span class="brand-dot"></span>
+        <span>NEBULA</span>
+      </div>
+
+      <!-- Live System Status Pill -->
+      <div class="glass-pill" id="hudStatusPill" role="status" aria-live="polite">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Waiting to start</span>
+      </div>
+
+      <!-- Active Gesture Pill -->
+      <div class="glass-pill gesture-pill" id="gesturePill">
+        <span class="gesture-icon" id="gestureIcon">✨</span>
+        <span class="gesture-name" id="gestureName">Ambient Drift</span>
+      </div>
+    </div>
+
+    <div class="hud-group">
+      <!-- Performance & Particle Readout -->
+      <div class="glass-pill" title="Frame Rate & Active Particle Count">
+        <span id="fpsCounter">60 FPS</span>
+        <span style="opacity:0.35">|</span>
+        <span id="particleCounter">700 pts</span>
+      </div>
+
+      <!-- Stop Camera Button (Visible when Camera Active) -->
+      <button class="hud-btn danger" id="stopCameraHudBtn" style="display: none;" type="button">
+        <span>⏹ Stop Camera</span>
+      </button>
+
+      <!-- Quick Skeleton Overlay Button -->
+      <button class="hud-btn" id="quickSkeletonBtn" type="button" title="Toggle Hand Landmarks Skeleton">
+        <span>🖐️ Skeleton</span>
+      </button>
+
+      <!-- Settings Drawer Toggle -->
+      <button class="hud-btn primary" id="toggleDrawerBtn" type="button" aria-expanded="false">
+        <span>⚙️ Controls</span>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button class="hud-btn" id="fullscreenBtn" type="button" title="Toggle Fullscreen">
+        <span>⛶</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Collapsible Settings & Controls Drawer -->
+  <aside class="control-drawer closed" id="controlDrawer" aria-label="Universe Controls">
+    <div class="drawer-header">
+      <span class="drawer-title">Universe Controls</span>
+      <button class="hud-btn" id="closeDrawerBtn" type="button" style="min-height:34px; padding:0 12px;">✕</button>
+    </div>
+
+    <!-- Camera Start / Stop inside Drawer -->
+    <div class="control-section" style="display:flex; gap:8px;">
+      <button class="hud-btn primary" id="drawerCameraBtn" type="button" style="flex:1;">
+        <span>📷 Start Camera</span>
+      </button>
+      <button class="hud-btn" id="resetUniverseBtn" type="button" title="Reset Particle Universe">
+        <span>🔄 Reset</span>
+      </button>
+    </div>
+
+    <!-- Particle Density Slider -->
+    <div class="control-section">
+      <div class="control-label-row">
+        <label for="densitySlider">Particle Density</label>
+        <span class="control-value" id="densityValue">700</span>
+      </div>
+      <input type="range" id="densitySlider" min="200" max="1600" step="50" value="700" />
+    </div>
+
+    <!-- Particle Size Slider -->
+    <div class="control-section">
+      <div class="control-label-row">
+        <label for="sizeSlider">Particle Scale</label>
+        <span class="control-value" id="sizeValue">1.0x</span>
+      </div>
+      <input type="range" id="sizeSlider" min="0.5" max="2.2" step="0.1" value="1.0" />
+    </div>
+
+    <!-- Glow & Trail Intensity Slider -->
+    <div class="control-section">
+      <div class="control-label-row">
+        <label for="glowSlider">Glow &amp; Trail Intensity</label>
+        <span class="control-value" id="glowValue">80%</span>
+      </div>
+      <input type="range" id="glowSlider" min="20" max="100" step="5" value="80" />
+    </div>
+
+    <!-- Color Theme Selector -->
+    <div class="control-section">
+      <div class="control-label-row">
+        <span>Cosmic Color Theme</span>
+      </div>
+      <div class="theme-grid" id="themeGrid">
+        <button class="theme-btn active" data-theme="nebula" type="button">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ec4899);"></span>
+          <span>Nebula</span>
+        </button>
+        <button class="theme-btn" data-theme="solar" type="button">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#facc15,#f97316,#ef4444);"></span>
+          <span>Solar Flare</span>
+        </button>
+        <button class="theme-btn" data-theme="quantum" type="button">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#34d399,#06b6d4,#a3e635);"></span>
+          <span>Quantum</span>
+        </button>
+        <button class="theme-btn" data-theme="supernova" type="button">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#f472b6,#c084fc,#60a5fa);"></span>
+          <span>Supernova</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Feature Toggles -->
+    <div class="control-section">
+      <div class="control-label-row">
+        <span>Visual &amp; Tracking Options</span>
+      </div>
+      <div class="toggle-grid">
+        <button class="toggle-row-btn" id="toggleSkeletonBtn" type="button">
+          <span>Show Hand Skeleton Overlay</span>
+          <span class="toggle-pill-indicator" id="skeletonIndicator">OFF</span>
+        </button>
+        <button class="toggle-row-btn on" id="togglePipBtn" type="button">
+          <span>Show Camera Preview (PiP)</span>
+          <span class="toggle-pill-indicator" id="pipIndicator">ON</span>
+        </button>
+        <button class="toggle-row-btn on" id="toggleTwoHandBtn" type="button">
+          <span>Two-Hand Energy Bridge</span>
+          <span class="toggle-pill-indicator" id="twoHandIndicator">ON</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Active Gesture Legend Chips -->
+  <div class="gesture-bar" aria-hidden="true">
+    <div class="gesture-chip" data-chip="OPEN_PALM">🖐️ Open Palm: Expand</div>
+    <div class="gesture-chip" data-chip="FIST">✊ Fist: Singularity Orb</div>
+    <div class="gesture-chip" data-chip="PINCH">🤏 Pinch: Precision Vortex</div>
+    <div class="gesture-chip" data-chip="POINT">☝️ Point: Particle Beam</div>
+    <div class="gesture-chip" data-chip="SWIPE">⚡ Fast Swipe: Shockwave</div>
+    <div class="gesture-chip" data-chip="TWO_HANDS">🙌 Two Hands: Plasma Bridge</div>
+  </div>
+
+  <!-- Picture-in-Picture Camera & Real-Time Skeleton Overlay -->
+  <div class="pip-container" id="pipContainer">
+    <video id="webcamVideo" playsinline muted></video>
+    <canvas id="skeletonCanvas"></canvas>
+    <div class="pip-badge" id="pipBadge">LIVE CAM</div>
+  </div>
+
+  <!-- Welcome & Startup Modal Screen -->
+  <section class="welcome-overlay" id="welcomeOverlay">
+    <div class="welcome-card">
+      <div class="cosmic-badge">✨ Real-Time AI Hand-Tracking Installation</div>
+      <h1 class="welcome-title">NEBULA — Hand-Controlled Particle Universe</h1>
+      <p class="welcome-subtitle">Move your hands. Shape the universe.</p>
+
+      <div class="gesture-guide-grid">
+        <div class="guide-item">
+          <span class="guide-emoji">🖐️</span>
+          <div class="guide-text">
+            <strong>Open &amp; Move Palm</strong>
+            <span>Form glowing harmonic rings and guide magnetic particle currents.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-emoji">✊</span>
+          <div class="guide-text">
+            <strong>Close Fist &amp; Release</strong>
+            <span>Compress particles into a dense orbiting core; open palm for a supernova burst.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-emoji">🤏</span>
+          <div class="guide-text">
+            <strong>Thumb-Index Pinch</strong>
+            <span>Concentrate a precision spiral vortex between your fingers.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-emoji">☝️</span>
+          <div class="guide-text">
+            <strong>Index Finger Point</strong>
+            <span>Emit a flowing directional ribbon beam of luminous particles.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-emoji">⚡</span>
+          <div class="guide-text">
+            <strong>Fast Hand Swipe</strong>
+            <span>Unleash an expanding radial energy shockwave across the cosmos.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-emoji">🙌</span>
+          <div class="guide-text">
+            <strong>Two-Hand Bridge</strong>
+            <span>Connect both palms with a live oscillating plasma energy bridge.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Start Button -->
+      <div>
+        <button class="cta-button" id="startExperienceBtn" type="button">
+          <span id="startBtnLabel">START EXPERIENCE</span>
+        </button>
+      </div>
+
+      <!-- Optional Dismiss Modal to View Ambient Universe / Touch Fallback -->
+      <div>
+        <button class="secondary-cta" id="exploreAmbientBtn" type="button" style="display:none;">
+          Explore Universe with Touch Fallback
+        </button>
+      </div>
+
+      <!-- Diagnostic / Recovery Box for Permissions or Local File Restrictions -->
+      <div class="diagnostic-box" id="diagnosticBox" role="alert">
+        <h4 id="diagnosticTitle">⚠️ Camera Status Notice</h4>
+        <div id="diagnosticMessage"></div>
+      </div>
+
+      <!-- Privacy & Requirement Disclosure -->
+      <div class="privacy-note">
+        <strong>🔒 100% On-Device Privacy &amp; Network Notice:</strong>
+        All camera frames and hand landmarks are processed locally in your tablet's browser using WebAssembly and WebGL. No video or biometric data is ever recorded, saved, or transmitted. Microphone access is never requested. An active internet connection is required when loading to fetch the MediaPipe Hand Landmarker runtime and model from the CDN.
+      </div>
+    </div>
+  </section>
+
+  <script>
+    /**
+     * NEBULA — Hand-Controlled Particle Universe
+     * Complete Android-Compatible Real-Time Computer Vision & Particle Physics Engine
+     */
+    (function () {
+      'use strict';
+
+      // ==========================================
+      // 1. CONFIGURATION & COLOR THEMES
+      // ==========================================
+      const THEMES = {
+        nebula: {
+          name: 'Nebula',
+          palette: ['#22d3ee', '#38bdf8', '#60a5fa', '#a855f7', '#ec4899', '#f8fafc'],
+          coreGlow: '#22d3ee',
+          secondaryGlow: '#a855f7',
+          ringColor: '34, 211, 238',
+          bridgeColor: '168, 85, 247'
+        },
+        solar: {
+          name: 'Solar Flare',
+          palette: ['#fde047', '#facc15', '#fb923c', '#f97316', '#ef4444', '#fffbeb'],
+          coreGlow: '#facc15',
+          secondaryGlow: '#ef4444',
+          ringColor: '250, 204, 21',
+          bridgeColor: '249, 115, 22'
+        },
+        quantum: {
+          name: 'Quantum',
+          palette: ['#34d399', '#10b981', '#06b6d4', '#22d3ee', '#a3e635', '#ecfdf5'],
+          coreGlow: '#34d399',
+          secondaryGlow: '#06b6d4',
+          ringColor: '52, 211, 153',
+          bridgeColor: '6, 182, 212'
+        },
+        supernova: {
+          name: 'Supernova',
+          palette: ['#f472b6', '#e879f9', '#c084fc', '#818cf8', '#38bdf8', '#ffffff'],
+          coreGlow: '#f472b6',
+          secondaryGlow: '#818cf8',
+          ringColor: '244, 114, 182',
+          bridgeColor: '192, 132, 252'
+        }
+      };
+
+      const STATUS_MESSAGES = {
+        WAITING: 'Waiting to start',
+        REQUESTING_CAM: 'Requesting camera permission',
+        LOADING_MODEL: 'Loading hand-tracking model',
+        CAMERA_ACTIVE: 'Camera active',
+        SHOW_HAND: 'Show your hand to begin',
+        HAND_DETECTED: 'Hand detected',
+        PERMISSION_DENIED: 'Camera permission denied',
+        CAMERA_UNAVAILABLE: 'Camera unavailable',
+        MODEL_FAILED: 'Model download failed',
+        UNSUPPORTED_CONTEXT: 'Camera access is unsupported in this browser context'
+      };
+
+      const state = {
+        status: STATUS_MESSAGES.WAITING,
+        cameraActive: false,
+        modelLoaded: false,
+        modelLoading: false,
+        showSkeleton: false, // Disabled by default per Section 8 to keep view clean
+        showPip: true,
+        twoHandEnabled: true,
+        themeKey: 'nebula',
+        targetParticleCount: 700,
+        particleScale: 1.0,
+        glowIntensity: 0.8,
+        dpr: 1,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        fps: 60,
+        activeGestureLabel: 'Ambient Drift',
+        activeGestureIcon: '✨',
+        activeGestureCode: 'NONE',
+        touchFallbackEnabled: false,
+        pageHidden: false
+      };
+
+      // ==========================================
+      // 2. DOM ELEMENTS
+      // ==========================================
+      const canvas = document.getElementById('universeCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false });
+      const webcamVideo = document.getElementById('webcamVideo');
+      const skeletonCanvas = document.getElementById('skeletonCanvas');
+      const skelCtx = skeletonCanvas.getContext('2d');
+
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const gestureIcon = document.getElementById('gestureIcon');
+      const gestureName = document.getElementById('gestureName');
+      const fpsCounter = document.getElementById('fpsCounter');
+      const particleCounter = document.getElementById('particleCounter');
+
+      const welcomeOverlay = document.getElementById('welcomeOverlay');
+      const startExperienceBtn = document.getElementById('startExperienceBtn');
+      const startBtnLabel = document.getElementById('startBtnLabel');
+      const exploreAmbientBtn = document.getElementById('exploreAmbientBtn');
+      const diagnosticBox = document.getElementById('diagnosticBox');
+      const diagnosticTitle = document.getElementById('diagnosticTitle');
+      const diagnosticMessage = document.getElementById('diagnosticMessage');
+
+      const stopCameraHudBtn = document.getElementById('stopCameraHudBtn');
+      const quickSkeletonBtn = document.getElementById('quickSkeletonBtn');
+      const toggleDrawerBtn = document.getElementById('toggleDrawerBtn');
+      const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+      const controlDrawer = document.getElementById('controlDrawer');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+      const drawerCameraBtn = document.getElementById('drawerCameraBtn');
+      const resetUniverseBtn = document.getElementById('resetUniverseBtn');
+      const densitySlider = document.getElementById('densitySlider');
+      const densityValue = document.getElementById('densityValue');
+      const sizeSlider = document.getElementById('sizeSlider');
+      const sizeValue = document.getElementById('sizeValue');
+      const glowSlider = document.getElementById('glowSlider');
+      const glowValue = document.getElementById('glowValue');
+      const themeGrid = document.getElementById('themeGrid');
+
+      const toggleSkeletonBtn = document.getElementById('toggleSkeletonBtn');
+      const skeletonIndicator = document.getElementById('skeletonIndicator');
+      const togglePipBtn = document.getElementById('togglePipBtn');
+      const pipIndicator = document.getElementById('pipIndicator');
+      const toggleTwoHandBtn = document.getElementById('toggleTwoHandBtn');
+      const twoHandIndicator = document.getElementById('twoHandIndicator');
+      const pipContainer = document.getElementById('pipContainer');
+      const pipBadge = document.getElementById('pipBadge');
+      const gestureChips = document.querySelectorAll('.gesture-chip');
+
+      // ==========================================
+      // 3. STATUS & DIAGNOSTICS MANAGEMENT
+      // ==========================================
+      function setSystemStatus(message, dotState = 'idle') {
+        state.status = message;
+        statusText.textContent = message;
+        statusDot.className = 'status-dot';
+        if (dotState === 'active') statusDot.classList.add('active');
+        else if (dotState === 'loading') statusDot.classList.add('loading');
+        else if (dotState === 'error') statusDot.classList.add('error');
+      }
+
+      function showDiagnostic(title, htmlContent, showTouchFallback = true) {
+        diagnosticTitle.innerHTML = title;
+        diagnosticMessage.innerHTML = htmlContent;
+        diagnosticBox.classList.add('visible');
+        if (showTouchFallback) {
+          exploreAmbientBtn.style.display = 'inline-block';
+        }
+      }
+
+      function hideDiagnostic() {
+        diagnosticBox.classList.remove('visible');
+      }
+
+      function updateGestureHUD(code, label, icon) {
+        if (state.activeGestureCode === code && state.activeGestureLabel === label) return;
+        state.activeGestureCode = code;
+        state.activeGestureLabel = label;
+        state.activeGestureIcon = icon;
+        gestureName.textContent = label;
+        gestureIcon.textContent = icon;
+
+        gestureChips.forEach(chip => {
+          if (chip.dataset.chip === code) {
+            chip.classList.add('active');
+          } else {
+            chip.classList.remove('active');
+          }
+        });
+      }
+
+      // Check initial browser context compatibility on load
+      function checkInitialBrowserSupport() {
+        const isFileProtocol = window.location.protocol === 'file:';
+        const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+        if (!hasMediaDevices || (!window.isSecureContext && isFileProtocol)) {
+          setSystemStatus(STATUS_MESSAGES.UNSUPPORTED_CONTEXT, 'error');
+          showDiagnostic(
+            '⚠️ Local File Camera Restriction Detected',
+            `<p>Android browsers (including Chrome) block camera access when an HTML file is opened directly via <code>file://</code> for security reasons.</p>
+             <p style="margin-top:6px;"><strong>Simplest Solutions (No build tools required):</strong></p>
+             <ol>
+               <li><strong>Instant HTTPS Hosting:</strong> Drag and drop this single <code>index.html</code> file onto <strong>app.netlify.com/drop</strong> or host it on <strong>GitHub Pages</strong> to open it via a secure <code>https://</code> link on your tablet.</li>
+               <li><strong>Try Direct Permission:</strong> Tap <strong>START EXPERIENCE</strong> below anyway—some Android WebViews or local localhost servers allow camera access.</li>
+             </ol>`,
+            true
+          );
+        }
+      }
+
+      // ==========================================
+      // 4. OBJECT-POOLED PARTICLE ENGINE
+      // ==========================================
+      const MAX_UNIVERSE_PARTICLES = 1600;
+      const MAX_BURST_PARTICLES = 320;
+      const MAX_SHOCKWAVES = 16;
+
+      const universePool = new Array(MAX_UNIVERSE_PARTICLES);
+      const burstPool = new Array(MAX_BURST_PARTICLES);
+      const shockwavePool = new Array(MAX_SHOCKWAVES);
+
+      class Particle {
+        constructor(isBurst = false) {
+          this.isBurst = isBurst;
+          this.active = !isBurst;
+          this.x = 0;
+          this.y = 0;
+          this.px = 0;
+          this.py = 0;
+          this.vx = 0;
+          this.vy = 0;
+          this.baseSize = 2;
+          this.size = 2;
+          this.colorIndex = 0;
+          this.color = '#22d3ee';
+          this.alpha = 0.8;
+          this.baseAlpha = 0.8;
+          this.orbitFactor = 1;
+          this.response = 1;
+          this.life = 0;
+          this.maxLife = 100;
+          this.depth = 1;
+        }
+
+        initAmbient(w, h, palette) {
+          this.active = true;
+          this.x = Math.random() * w;
+          this.y = Math.random() * h;
+          this.px = this.x;
+          this.py = this.y;
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 0.15 + Math.random() * 0.55;
+          this.vx = Math.cos(angle) * speed;
+          this.vy = Math.sin(angle) * speed;
+          this.depth = 0.45 + Math.random() * 0.85; // Layered depth
+          this.baseSize = (1.1 + Math.random() * 2.4) * this.depth;
+          this.size = this.baseSize;
+          this.colorIndex = Math.floor(Math.random() * palette.length);
+          this.color = palette[this.colorIndex];
+          this.baseAlpha = 0.35 + Math.random() * 0.55;
+          this.alpha = this.baseAlpha;
+          this.orbitFactor = (Math.random() < 0.5 ? -1 : 1) * (0.75 + Math.random() * 0.5);
+          this.response = 0.65 + Math.random() * 0.7;
+        }
+
+        spawnBurst(x, y, vx, vy, size, color, maxLife) {
+          this.active = true;
+          this.x = x;
+          this.y = y;
+          this.px = x;
+          this.py = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.baseSize = size;
+          this.size = size;
+          this.color = color;
+          this.life = 0;
+          this.maxLife = maxLife;
+          this.alpha = 1.0;
+          this.response = 0.9;
+        }
+      }
+
+      class Shockwave {
+        constructor() {
+          this.active = false;
+          this.x = 0;
+          this.y = 0;
+          this.radius = 10;
+          this.maxRadius = 400;
+          this.speed = 12;
+          this.force = 8;
+          this.alpha = 1;
+          this.colorRgb = '34, 211, 238';
+          this.lineWidth = 4;
+        }
+
+        trigger(x, y, maxRadius, speed, force, colorRgb) {
+          this.active = true;
+          this.x = x;
+          this.y = y;
+          this.radius = 18;
+          this.maxRadius = maxRadius;
+          this.speed = speed;
+          this.force = force;
+          this.alpha = 0.95;
+          this.colorRgb = colorRgb;
+          this.lineWidth = 4.5;
+        }
+      }
+
+      function initPools() {
+        const palette = THEMES[state.themeKey].palette;
+        for (let i = 0; i < MAX_UNIVERSE_PARTICLES; i++) {
+          const p = new Particle(false);
+          p.initAmbient(state.width, state.height, palette);
+          universePool[i] = p;
+        }
+        for (let i = 0; i < MAX_BURST_PARTICLES; i++) {
+          burstPool[i] = new Particle(true);
+        }
+        for (let i = 0; i < MAX_SHOCKWAVES; i++) {
+          shockwavePool[i] = new Shockwave();
+        }
+      }
+
+      function updateThemeColors() {
+        const palette = THEMES[state.themeKey].palette;
+        for (let i = 0; i < MAX_UNIVERSE_PARTICLES; i++) {
+          const p = universePool[i];
+          p.color = palette[p.colorIndex % palette.length];
+        }
+      }
+
+      let burstPoolCursor = 0;
+      function emitBurstParticle(x, y, vx, vy, size, color, maxLife) {
+        const p = burstPool[burstPoolCursor];
+        burstPoolCursor = (burstPoolCursor + 1) % MAX_BURST_PARTICLES;
+        p.spawnBurst(x, y, vx, vy, size, color, maxLife);
+      }
+
+      function emitRadialBurst(x, y, count, minSpeed, maxSpeed, maxRadiusShockwave = 380) {
+        const theme = THEMES[state.themeKey];
+        const palette = theme.palette;
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
+          const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
+          const color = palette[Math.floor(Math.random() * palette.length)];
+          emitBurstParticle(
+            x + (Math.random() - 0.5) * 14,
+            y + (Math.random() - 0.5) * 14,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            1.8 + Math.random() * 2.5,
+            color,
+            34 + Math.floor(Math.random() * 28)
+          );
+        }
+        triggerShockwave(x, y, maxRadiusShockwave, 14, 9.5, theme.ringColor);
+      }
+
+      function triggerShockwave(x, y, maxRadius, speed, force, colorRgb) {
+        for (let i = 0; i < MAX_SHOCKWAVES; i++) {
+          if (!shockwavePool[i].active) {
+            shockwavePool[i].trigger(x, y, maxRadius, speed, force, colorRgb);
+            return;
+          }
+        }
+        shockwavePool[0].trigger(x, y, maxRadius, speed, force, colorRgb);
+      }
+
+      // ==========================================
+      // 5. REAL-TIME HAND TRACKING & GESTURE STATE
+      // ==========================================
+      let handLandmarker = null;
+      let mediaStream = null;
+      let lastVideoTime = -1;
+      let lastDetectionTimestamp = 0;
+      const DETECTION_INTERVAL_MS = 44; // ~22.7 detections/sec for optimal Android thermal & FPS balance
+
+      // Hand Connections for 21 Landmarks
+      const HAND_CONNECTIONS = [
+        [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
+        [0, 5], [5, 6], [6, 7], [7, 8],       // Index
+        [0, 9], [9, 10], [10, 11], [11, 12],  // Middle
+        [0, 13], [13, 14], [14, 15], [15, 16],// Ring
+        [0, 17], [17, 18], [18, 19], [19, 20],// Pinky
+        [5, 9], [9, 13], [13, 17], [0, 17]    // Palm base
+      ];
+
+      class TrackedHandState {
+        constructor(id) {
+          this.id = id;
+          this.active = false;
+          this.confidence = 0;
+          this.lastSeenTime = 0;
+          // 21 smoothed landmarks in normalized [0..1] mirrored space
+          this.landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+          this.initialized = false;
+
+          // Derived physical coordinates on screen
+          this.palmX = 0;
+          this.palmY = 0;
+          this.prevPalmX = 0;
+          this.prevPalmY = 0;
+          this.vx = 0;
+          this.vy = 0;
+          this.speed = 0;
+
+          // Normalized metrics
+          this.palmScale = 0.15;
+          this.palmWidth = 0.1;
+          this.spreadRatio = 1.0;
+          this.pinchRatio = 1.0;
+          this.isPinching = false;
+
+          // Active focal points (pinch midpoint or index fingertip)
+          this.focalX = 0;
+          this.focalY = 0;
+          this.pointDirX = 0;
+          this.pointDirY = -1;
+          this.prevPointDirX = 0;
+          this.prevPointDirY = -1;
+
+          // Gesture state machine
+          this.gesture = 'OPEN_PALM';
+          this.prevGesture = 'OPEN_PALM';
+          this.fistCharge = 0;
+          this.pinchCharge = 0;
+          this.lastSwipeTime = 0;
+        }
+
+        updateFromRaw(rawLandmarks, confidence, now, screenW, screenH) {
+          this.active = true;
+          this.confidence = confidence;
+          this.lastSeenTime = now;
+
+          // Low-pass smoothing alpha (responsive yet jitter-free)
+          const alpha = this.initialized ? 0.42 : 1.0;
+
+          for (let i = 0; i < 21; i++) {
+            const mirroredX = 1.0 - rawLandmarks[i].x; // Mirror horizontally for front camera
+            const rawY = rawLandmarks[i].y;
+            const rawZ = rawLandmarks[i].z || 0;
+
+            this.landmarks[i].x += (mirroredX - this.landmarks[i].x) * alpha;
+            this.landmarks[i].y += (rawY - this.landmarks[i].y) * alpha;
+            this.landmarks[i].z += (rawZ - this.landmarks[i].z) * alpha;
+          }
+
+          const lm = this.landmarks;
+
+          // Compute Palm Center (average of Wrist 0 and MCPs 5, 9, 13, 17)
+          const cx = (lm[0].x + lm[5].x + lm[9].x + lm[13].x + lm[17].x) / 5;
+          const cy = (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5;
+
+          const newPalmX = cx * screenW;
+          const newPalmY = cy * screenH;
+
+          if (!this.initialized) {
+            this.palmX = newPalmX;
+            this.palmY = newPalmY;
+            this.prevPalmX = newPalmX;
+            this.prevPalmY = newPalmY;
+            this.initialized = true;
+          } else {
+            this.prevPalmX = this.palmX;
+            this.prevPalmY = this.palmY;
+            this.palmX = newPalmX;
+            this.palmY = newPalmY;
+          }
+
+          // Smoothed Palm Velocity
+          const instVx = this.palmX - this.prevPalmX;
+          const instVy = this.palmY - this.prevPalmY;
+          this.vx = this.vx * 0.6 + instVx * 0.4;
+          this.vy = this.vy * 0.6 + instVy * 0.4;
+          this.speed = Math.hypot(this.vx, this.vy);
+
+          // Scale-Invariant Reference: Wrist (0) to Middle MCP (9)
+          const palmScale = Math.max(0.04, Math.hypot(lm[9].x - lm[0].x, lm[9].y - lm[0].y));
+          this.palmScale = palmScale;
+          this.palmWidth = Math.hypot(lm[17].x - lm[5].x, lm[17].y - lm[5].y);
+
+          // Finger Extension Ratios (Tip to Wrist distance divided by Palm Scale)
+          const indexExt = Math.hypot(lm[8].x - lm[0].x, lm[8].y - lm[0].y) / palmScale;
+          const middleExt = Math.hypot(lm[12].x - lm[0].x, lm[12].y - lm[0].y) / palmScale;
+          const ringExt = Math.hypot(lm[16].x - lm[0].x, lm[16].y - lm[0].y) / palmScale;
+          const pinkyExt = Math.hypot(lm[20].x - lm[0].x, lm[20].y - lm[0].y) / palmScale;
+
+          // Also check PIP-to-Tip vs MCP-to-Wrist to accurately detect curled fingers
+          const indexOpen = indexExt > 1.52 && Math.hypot(lm[8].x - lm[5].x, lm[8].y - lm[5].y) / palmScale > 0.68;
+          const middleOpen = middleExt > 1.50 && Math.hypot(lm[12].x - lm[9].x, lm[12].y - lm[9].y) / palmScale > 0.68;
+          const ringOpen = ringExt > 1.42 && Math.hypot(lm[16].x - lm[13].x, lm[16].y - lm[13].y) / palmScale > 0.62;
+          const pinkyOpen = pinkyExt > 1.32 && Math.hypot(lm[20].x - lm[17].x, lm[20].y - lm[17].y) / palmScale > 0.55;
+
+          const openCount = (indexOpen ? 1 : 0) + (middleOpen ? 1 : 0) + (ringOpen ? 1 : 0) + (pinkyOpen ? 1 : 0);
+
+          // Finger Spread metric (normalized distance across fingertips 4, 8, 12, 16, 20)
+          const spreadSum =
+            Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y) +
+            Math.hypot(lm[12].x - lm[8].x, lm[12].y - lm[8].y) +
+            Math.hypot(lm[16].x - lm[12].x, lm[16].y - lm[12].y) +
+            Math.hypot(lm[20].x - lm[16].x, lm[20].y - lm[16].y);
+          this.spreadRatio = Math.min(2.2, Math.max(0.5, (spreadSum / palmScale) * 0.55));
+
+          // Normalized Thumb-Tip (4) to Index-Tip (8) Pinch Distance with Hysteresis
+          this.pinchRatio = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y) / palmScale;
+          if (!this.isPinching && this.pinchRatio < 0.36 && (middleOpen || ringOpen || indexExt > 1.15)) {
+            this.isPinching = true;
+          } else if (this.isPinching && this.pinchRatio > 0.48) {
+            this.isPinching = false;
+          }
+
+          // Classify Gesture & Handle State Transitions
+          this.prevGesture = this.gesture;
+
+          // Check Fast Swipe Shockwave first (velocity threshold normalized by screen size)
+          const minDim = Math.min(screenW, screenH);
+          const swipeThreshold = Math.max(24, minDim * 0.036);
+          if (this.speed > swipeThreshold && now - this.lastSwipeTime > 520 && openCount >= 2) {
+            this.lastSwipeTime = now;
+            const theme = THEMES[state.themeKey];
+            const intensity = Math.min(2.0, this.speed / swipeThreshold);
+            triggerShockwave(
+              this.palmX,
+              this.palmY,
+              minDim * (0.45 + 0.2 * intensity),
+              14 + 5 * intensity,
+              9 + 5 * intensity,
+              theme.ringColor
+            );
+            emitRadialBurst(this.palmX, this.palmY, Math.floor(28 * intensity), 4, 14, minDim * 0.42);
+            this.gesture = 'SWIPE';
+          } else if (this.isPinching) {
+            this.gesture = 'PINCH';
+            this.focalX = ((lm[4].x + lm[8].x) * 0.5) * screenW;
+            this.focalY = ((lm[4].y + lm[8].y) * 0.5) * screenH;
+            this.pinchCharge = Math.min(1.0, this.pinchCharge + 0.08);
+          } else if (openCount === 0 && indexExt < 1.38 && middleExt < 1.38) {
+            this.gesture = 'FIST';
+            this.focalX = this.palmX;
+            this.focalY = this.palmY;
+            this.fistCharge = Math.min(1.0, this.fistCharge + 0.06);
+          } else if (indexOpen && !middleOpen && !ringOpen && !pinkyOpen) {
+            this.gesture = 'POINT';
+            this.focalX = lm[8].x * screenW;
+            this.focalY = lm[8].y * screenH;
+            const dx = (lm[8].x - lm[5].x) * screenW;
+            const dy = (lm[8].y - lm[5].y) * screenH;
+            const len = Math.hypot(dx, dy) || 1;
+            this.prevPointDirX = this.pointDirX;
+            this.prevPointDirY = this.pointDirY;
+            this.pointDirX = dx / len;
+            this.pointDirY = dy / len;
+          } else {
+            this.gesture = 'OPEN_PALM';
+            this.focalX = this.palmX;
+            this.focalY = this.palmY;
+          }
+
+          // Release Transitions:
+          // 1) Reopening hand from a charged FIST -> Supernova Outward Burst!
+          if (this.prevGesture === 'FIST' && this.gesture === 'OPEN_PALM' && this.fistCharge > 0.28) {
+            const burstCount = Math.floor(45 + this.fistCharge * 55);
+            emitRadialBurst(this.palmX, this.palmY, burstCount, 6, 19, minDim * 0.65);
+            this.fistCharge = 0;
+          } else if (this.gesture !== 'FIST') {
+            this.fistCharge = Math.max(0, this.fistCharge - 0.05);
+          }
+
+          // 2) Releasing a charged PINCH -> Smooth Radial Ripple Burst!
+          if (this.prevGesture === 'PINCH' && this.gesture !== 'PINCH' && this.pinchCharge > 0.25) {
+            emitRadialBurst(this.focalX, this.focalY, 32, 3.5, 11, minDim * 0.34);
+            this.pinchCharge = 0;
+          } else if (this.gesture !== 'PINCH') {
+            this.pinchCharge = Math.max(0, this.pinchCharge - 0.05);
+          }
+        }
+      }
+
+      const trackedHands = [new TrackedHandState(0), new TrackedHandState(1)];
+
+      // Optional Touch/Pointer Fallback State (used only when camera is stopped or touch fallback chosen)
+      const touchPointer = {
+        active: false,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0
+      };
+
+      // ==========================================
+      // 6. MEDIAPIPE INITIALIZATION & CAMERA FLOW
+      // ==========================================
+      async function loadHandLandmarkerModel() {
+        if (handLandmarker) return handLandmarker;
+        if (state.modelLoading) return null;
+
+        state.modelLoading = true;
+        setSystemStatus(STATUS_MESSAGES.LOADING_MODEL, 'loading');
+        startBtnLabel.textContent = 'LOADING AI MODEL...';
+
+        try {
+          const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');
+          const { FilesetResolver, HandLandmarker } = visionModule;
+
+          const visionWasm = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+          );
+
+          try {
+            handLandmarker = await HandLandmarker.createFromOptions(visionWasm, {
+              baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+                delegate: 'GPU'
+              },
+              runningMode: 'VIDEO',
+              numHands: 2,
+              minHandDetectionConfidence: 0.52,
+              minHandPresenceConfidence: 0.52,
+              minTrackingConfidence: 0.5
+            });
+          } catch (gpuError) {
+            // Graceful fallback to CPU delegate if WebGL delegate fails on specific Android GPU drivers
+            handLandmarker = await HandLandmarker.createFromOptions(visionWasm, {
+              baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+                delegate: 'CPU'
+              },
+              runningMode: 'VIDEO',
+              numHands: 2,
+              minHandDetectionConfidence: 0.52,
+              minHandPresenceConfidence: 0.52,
+              minTrackingConfidence: 0.5
+            });
+          }
+
+          state.modelLoaded = true;
+          state.modelLoading = false;
+          return handLandmarker;
+        } catch (err) {
+          state.modelLoading = false;
+          setSystemStatus(STATUS_MESSAGES.MODEL_FAILED, 'error');
+          startExperienceBtn.disabled = false;
+          startBtnLabel.textContent = 'RETRY MODEL & CAMERA';
+          showDiagnostic(
+            '🌐 Hand-Tracking Model Download Failed',
+            `<p>Unable to download the MediaPipe Hand Landmarker runtime or model files from the CDN.</p>
+             <ol>
+               <li>Verify your Android tablet is connected to the internet.</li>
+               <li>Check that ad-blockers or firewall settings are not blocking <code>cdn.jsdelivr.net</code> or <code>storage.googleapis.com</code>.</li>
+               <li>Tap <strong>RETRY MODEL &amp; CAMERA</strong> above to try again.</li>
+             </ol>`,
+            true
+          );
+          return null;
+        }
+      }
+
+      async function startCameraExperience() {
+        hideDiagnostic();
+
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+          setSystemStatus(STATUS_MESSAGES.UNSUPPORTED_CONTEXT, 'error');
+          showDiagnostic(
+            '🔒 Camera API Blocked in Current Context',
+            `<p>Your browser disabled <code>navigator.mediaDevices.getUserMedia</code> because this file was opened directly over an unencrypted local path (<code>file://</code>).</p>
+             <ol>
+               <li><strong>Host over HTTPS (Recommended):</strong> Upload this single <code>index.html</code> file to <strong>app.netlify.com/drop</strong> or <strong>GitHub Pages</strong> and open the <code>https://</code> link in Chrome on your Android tablet.</li>
+               <li>Or tap <strong>Explore Universe with Touch Fallback</strong> below to interact with the particle physics right now via multi-touch.</li>
+             </ol>`,
+            true
+          );
+          return;
+        }
+
+        startExperienceBtn.disabled = true;
+        startBtnLabel.textContent = 'REQUESTING CAMERA...';
+        setSystemStatus(STATUS_MESSAGES.REQUESTING_CAM, 'loading');
+
+        try {
+          // Stop any existing tracks cleanly before opening a new stream
+          stopCameraStream(false);
+
+          const constraints = {
+            audio: false,
+            video: {
+              facingMode: { ideal: 'user' },
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              frameRate: { ideal: 30, max: 30 }
+            }
+          };
+
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          webcamVideo.srcObject = mediaStream;
+          await webcamVideo.play();
+
+          setSystemStatus(STATUS_MESSAGES.CAMERA_ACTIVE, 'active');
+
+          // Ensure HandLandmarker model is loaded
+          const landmarker = await loadHandLandmarkerModel();
+          if (!landmarker) {
+            stopCameraStream(false);
+            return;
+          }
+
+          // Camera + Model ready! Transition smoothly into fullscreen experience
+          state.cameraActive = true;
+          state.touchFallbackEnabled = false;
+          lastVideoTime = -1;
+          setSystemStatus(STATUS_MESSAGES.SHOW_HAND, 'active');
+
+          welcomeOverlay.classList.add('hidden');
+          stopCameraHudBtn.style.display = 'inline-flex';
+          drawerCameraBtn.innerHTML = '<span>⏹ Stop Camera</span>';
+          drawerCameraBtn.classList.add('danger');
+          drawerCameraBtn.classList.remove('primary');
+          pipBadge.textContent = 'LIVE CAM';
+          if (state.showPip) {
+            pipContainer.classList.remove('hidden');
+          }
+
+          startExperienceBtn.disabled = false;
+          startBtnLabel.textContent = 'START EXPERIENCE';
+        } catch (err) {
+          startExperienceBtn.disabled = false;
+          startBtnLabel.textContent = 'RETRY CAMERA';
+
+          const errName = (err && err.name) ? err.name : '';
+          if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || errName === 'SecurityError') {
+            setSystemStatus(STATUS_MESSAGES.PERMISSION_DENIED, 'error');
+            showDiagnostic(
+              '🚫 Camera Permission Denied',
+              `<p>Camera access was declined or blocked by your browser settings.</p>
+               <p style="margin-top:6px;"><strong>How to enable camera access on Android Chrome:</strong></p>
+               <ol>
+                 <li>Tap the <strong>Tune / Lock icon</strong> on the left side of Chrome's address bar.</li>
+                 <li>Tap <strong>Permissions</strong> &rarr; <strong>Camera</strong> and select <strong>Allow</strong>.</li>
+                 <li>If opened from a local <code>file://</code> path, host this single file on HTTPS (such as Netlify Drop or GitHub Pages), then tap <strong>RETRY CAMERA</strong>.</li>
+               </ol>`,
+              true
+            );
+          } else if (errName === 'NotFoundError' || errName === 'OverconstrainedError' || errName === 'NotReadableError') {
+            setSystemStatus(STATUS_MESSAGES.CAMERA_UNAVAILABLE, 'error');
+            showDiagnostic(
+              '📷 Camera Unavailable or In Use',
+              `<p>No compatible camera was found, or another app on your tablet is currently using the camera.</p>
+               <ol>
+                 <li>Close any other camera or video-call apps running in the background.</li>
+                 <li>Tap <strong>RETRY CAMERA</strong> above to reconnect.</li>
+               </ol>`,
+              true
+            );
+          } else {
+            setSystemStatus(STATUS_MESSAGES.CAMERA_UNAVAILABLE, 'error');
+            showDiagnostic(
+              '⚠️ Could Not Start Camera',
+              `<p>Browser reported: <code>${errName || 'Camera initialization error'}</code>.</p>
+               <p>Please check that you are opening this page over HTTPS or a supported browser context and tap <strong>RETRY CAMERA</strong>.</p>`,
+              true
+            );
+          }
+        }
+      }
+
+      function stopCameraStream(updateUI = true) {
+        if (mediaStream) {
+          const tracks = mediaStream.getTracks();
+          for (let i = 0; i < tracks.length; i++) {
+            tracks[i].stop();
+          }
+          mediaStream = null;
+        }
+        if (webcamVideo) {
+          webcamVideo.pause();
+          webcamVideo.srcObject = null;
+        }
+        state.cameraActive = false;
+        trackedHands[0].active = false;
+        trackedHands[0].initialized = false;
+        trackedHands[1].active = false;
+        trackedHands[1].initialized = false;
+        skelCtx.clearRect(0, 0, skeletonCanvas.width, skeletonCanvas.height);
+
+        if (updateUI) {
+          setSystemStatus(STATUS_MESSAGES.WAITING, 'idle');
+          updateGestureHUD('NONE', 'Ambient Drift', '✨');
+          stopCameraHudBtn.style.display = 'none';
+          drawerCameraBtn.innerHTML = '<span>📷 Start Camera</span>';
+          drawerCameraBtn.classList.remove('danger');
+          drawerCameraBtn.classList.add('primary');
+          pipBadge.textContent = 'CAM OFF';
+        }
+      }
+
+      // ==========================================
+      // 7. HAND DETECTION STEP (THROTTLED)
+      // ==========================================
+      function processHandTrackingFrame(now) {
+        if (!state.cameraActive || !handLandmarker || state.pageHidden) return;
+        if (webcamVideo.readyState < 2) return;
+
+        // Throttle detection rate (~22 FPS) and only run when video has a new frame
+        if (now - lastDetectionTimestamp < DETECTION_INTERVAL_MS) return;
+        if (webcamVideo.currentTime === lastVideoTime) return;
+
+        lastDetectionTimestamp = now;
+        lastVideoTime = webcamVideo.currentTime;
+
+        let result = null;
+        try {
+          result = handLandmarker.detectForVideo(webcamVideo, now);
+        } catch (e) {
+          return;
+        }
+
+        const detectedLandmarks = (result && result.landmarks) ? result.landmarks : [];
+        const detectedHandedness = (result && result.handedness) ? result.handedness : [];
+        const maxHands = state.twoHandEnabled ? Math.min(2, detectedLandmarks.length) : Math.min(1, detectedLandmarks.length);
+
+        if (maxHands === 0) {
+          // Gracefully decay tracked hands if lost for > 180ms
+          for (let h = 0; h < 2; h++) {
+            if (now - trackedHands[h].lastSeenTime > 180) {
+              trackedHands[h].active = false;
+              trackedHands[h].initialized = false;
+            }
+          }
+          if (!trackedHands[0].active && !trackedHands[1].active) {
+            if (state.status !== STATUS_MESSAGES.SHOW_HAND) {
+              setSystemStatus(STATUS_MESSAGES.SHOW_HAND, 'active');
+            }
+            updateGestureHUD('NONE', 'Ambient Drift', '✨');
+          }
+          drawHandSkeletonOverlay();
+          return;
+        }
+
+        if (state.status !== STATUS_MESSAGES.HAND_DETECTED) {
+          setSystemStatus(STATUS_MESSAGES.HAND_DETECTED, 'active');
+        }
+
+        // Match detected hands to slots 0 and 1 by proximity to avoid slot swapping
+        if (maxHands === 1) {
+          const score0 = (detectedHandedness[0] && detectedHandedness[0][0]) ? detectedHandedness[0][0].score : 0.9;
+          trackedHands[0].updateFromRaw(detectedLandmarks[0], score0, now, state.width, state.height);
+          trackedHands[1].active = false;
+          trackedHands[1].initialized = false;
+        } else if (maxHands === 2) {
+          const raw0 = detectedLandmarks[0];
+          const raw1 = detectedLandmarks[1];
+          const c0x = (1.0 - raw0[9].x) * state.width;
+          const c0y = raw0[9].y * state.height;
+          const c1x = (1.0 - raw1[9].x) * state.width;
+          const c1y = raw1[9].y * state.height;
+
+          let assignFlip = false;
+          if (trackedHands[0].initialized && trackedHands[1].initialized) {
+            const distNormal = Math.hypot(c0x - trackedHands[0].palmX, c0y - trackedHands[0].palmY) +
+                               Math.hypot(c1x - trackedHands[1].palmX, c1y - trackedHands[1].palmY);
+            const distFlipped = Math.hypot(c1x - trackedHands[0].palmX, c1y - trackedHands[0].palmY) +
+                                Math.hypot(c0x - trackedHands[1].palmX, c0y - trackedHands[1].palmY);
+            if (distFlipped < distNormal) assignFlip = true;
+          }
+
+          const firstRaw = assignFlip ? raw1 : raw0;
+          const secondRaw = assignFlip ? raw0 : raw1;
+          trackedHands[0].updateFromRaw(firstRaw, 0.92, now, state.width, state.height);
+          trackedHands[1].updateFromRaw(secondRaw, 0.92, now, state.width, state.height);
+        }
+
+        // Update Top HUD Gesture Label
+        if (trackedHands[0].active && trackedHands[1].active) {
+          updateGestureHUD('TWO_HANDS', 'Two-Hand Bridge', '🙌');
+        } else if (trackedHands[0].active) {
+          const g = trackedHands[0].gesture;
+          if (g === 'SWIPE') updateGestureHUD('SWIPE', 'Energy Shockwave', '⚡');
+          else if (g === 'FIST') updateGestureHUD('FIST', 'Singularity Orb', '✊');
+          else if (g === 'PINCH') updateGestureHUD('PINCH', 'Precision Vortex', '🤏');
+          else if (g === 'POINT') updateGestureHUD('POINT', 'Particle Stream', '☝️');
+          else updateGestureHUD('OPEN_PALM', 'Open Palm Field', '🖐️');
+        }
+
+        drawHandSkeletonOverlay();
+      }
+
+      // ==========================================
+      // 8. REAL-TIME HAND SKELETON OVERLAY (PiP)
+      // ==========================================
+      function drawHandSkeletonOverlay() {
+        const w = skeletonCanvas.width;
+        const h = skeletonCanvas.height;
+        skelCtx.clearRect(0, 0, w, h);
+
+        if (!state.showSkeleton) return;
+
+        const theme = THEMES[state.themeKey];
+
+        for (let idx = 0; idx < 2; idx++) {
+          const hand = trackedHands[idx];
+          if (!hand.active) continue;
+
+          const lm = hand.landmarks;
+
+          // Draw Finger Bones
+          skelCtx.save();
+          skelCtx.strokeStyle = idx === 0 ? theme.coreGlow : theme.secondaryGlow;
+          skelCtx.lineWidth = 2;
+          skelCtx.globalAlpha = 0.85;
+          skelCtx.beginPath();
+          for (let c = 0; c < HAND_CONNECTIONS.length; c++) {
+            const [a, b] = HAND_CONNECTIONS[c];
+            skelCtx.moveTo(lm[a].x * w, lm[a].y * h);
+            skelCtx.lineTo(lm[b].x * w, lm[b].y * h);
+          }
+          skelCtx.stroke();
+
+          // Draw 21 Joint Dots
+          skelCtx.fillStyle = '#ffffff';
+          for (let i = 0; i < 21; i++) {
+            skelCtx.beginPath();
+            skelCtx.arc(lm[i].x * w, lm[i].y * h, i % 4 === 0 ? 3.2 : 2.1, 0, Math.PI * 2);
+            skelCtx.fill();
+          }
+
+          // Draw Glowing Palm Center Marker
+          const px = (hand.palmX / state.width) * w;
+          const py = (hand.palmY / state.height) * h;
+          skelCtx.strokeStyle = theme.coreGlow;
+          skelCtx.lineWidth = 2;
+          skelCtx.beginPath();
+          skelCtx.arc(px, py, 7, 0, Math.PI * 2);
+          skelCtx.stroke();
+
+          // Draw Active Interaction Point Marker (Pinch or Point tip)
+          if (hand.gesture === 'PINCH' || hand.gesture === 'POINT') {
+            const fx = (hand.focalX / state.width) * w;
+            const fy = (hand.focalY / state.height) * h;
+            skelCtx.fillStyle = '#fde047';
+            skelCtx.beginPath();
+            skelCtx.arc(fx, fy, 5.5, 0, Math.PI * 2);
+            skelCtx.fill();
+          }
+          skelCtx.restore();
+        }
+      }
+
+      // ==========================================
+      // 9. PARTICLE PHYSICS & COSMIC RENDERING LOOP
+      // ==========================================
+      let cosmicTime = 0;
+      let frameCount = 0;
+      let fpsLastCheck = performance.now();
+
+      function updateAndRenderUniverse(now) {
+        cosmicTime += 0.016;
+        const w = state.width;
+        const h = state.height;
+        const minDim = Math.min(w, h);
+        const theme = THEMES[state.themeKey];
+        const palette = theme.palette;
+
+        // 1. Motion Trail Background Fade
+        const trailAlpha = 0.14 + (1.0 - state.glowIntensity) * 0.18;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(3, 5, 12, ${trailAlpha.toFixed(3)})`;
+        ctx.fillRect(0, 0, w, h);
+
+        // 2. Collect Active Hand Fields (or Touch Fallback Field)
+        const activeHands = [];
+        if (trackedHands[0].active) activeHands.push(trackedHands[0]);
+        if (trackedHands[1].active && state.twoHandEnabled) activeHands.push(trackedHands[1]);
+
+        // Emit Continuous Directional Stream Particles when in POINT Gesture
+        for (let hIdx = 0; hIdx < activeHands.length; hIdx++) {
+          const hand = activeHands[hIdx];
+          if (hand.gesture === 'POINT') {
+            // Check angular change to create visible ribbon wave
+            const turnDot = hand.pointDirX * hand.prevPointDirX + hand.pointDirY * hand.prevPointDirY;
+            const waveBoost = turnDot < 0.96 ? 1.8 : 1.0;
+
+            for (let s = 0; s < 4; s++) {
+              const spread = (Math.random() - 0.5) * 0.28 * waveBoost;
+              const cosS = Math.cos(spread);
+              const sinS = Math.sin(spread);
+              const dirX = hand.pointDirX * cosS - hand.pointDirY * sinS;
+              const dirY = hand.pointDirX * sinS + hand.pointDirY * cosS;
+              const speed = (9 + Math.random() * 7) * waveBoost;
+              const col = palette[(frameCount + s) % palette.length];
+              emitBurstParticle(
+                hand.focalX + (Math.random() - 0.5) * 8,
+                hand.focalY + (Math.random() - 0.5) * 8,
+                dirX * speed + hand.vx * 0.25,
+                dirY * speed + hand.vy * 0.25,
+                2.0 + Math.random() * 2.0,
+                col,
+                38 + Math.floor(Math.random() * 22)
+              );
+            }
+          }
+        }
+
+        // Two-Hand Bridge Midpoint & Distance Calculations
+        const hasTwoHands = activeHands.length === 2;
+        let bridgeMidX = 0, bridgeMidY = 0, bridgeDist = 0, bridgeNx = 0, bridgeNy = 0;
+        if (hasTwoHands) {
+          const h0 = activeHands[0];
+          const h1 = activeHands[1];
+          bridgeMidX = (h0.palmX + h1.palmX) * 0.5;
+          bridgeMidY = (h0.palmY + h1.palmY) * 0.5;
+          const dx = h1.palmX - h0.palmX;
+          const dy = h1.palmY - h0.palmY;
+          bridgeDist = Math.hypot(dx, dy) || 1;
+          bridgeNx = dx / bridgeDist;
+          bridgeNy = dy / bridgeDist;
+        }
+
+        // 3. Update & Draw Active Shockwaves
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let s = 0; s < MAX_SHOCKWAVES; s++) {
+          const sw = shockwavePool[s];
+          if (!sw.active) continue;
+
+          sw.radius += sw.speed;
+          sw.speed *= 0.985;
+          const progress = sw.radius / sw.maxRadius;
+          sw.alpha = Math.max(0, 1.0 - progress);
+
+          if (sw.radius >= sw.maxRadius || sw.alpha <= 0.02) {
+            sw.active = false;
+            continue;
+          }
+
+          ctx.strokeStyle = `rgba(${sw.colorRgb}, ${(sw.alpha * 0.75).toFixed(3)})`;
+          ctx.lineWidth = sw.lineWidth * (1.0 - progress * 0.6);
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 4. Draw Hand Field Auras, Harmonic Rings & Two-Hand Plasma Bridge
+        for (let hIdx = 0; hIdx < activeHands.length; hIdx++) {
+          const hand = activeHands[hIdx];
+          drawHandFieldVisuals(hand, minDim, theme);
+        }
+
+        if (hasTwoHands) {
+          drawTwoHandEnergyBridge(activeHands[0], activeHands[1], bridgeDist, theme);
+        }
+
+        // 5. Update & Render Main Pooled Universe Particles
+        const count = state.targetParticleCount;
+        const scaleMult = state.particleScale;
+        const glowMult = state.glowIntensity;
+
+        for (let i = 0; i < count; i++) {
+          const p = universePool[i];
+          p.px = p.x;
+          p.py = p.y;
+
+          // Subtle organic curl-like cosmic drift (always active even with no hand)
+          const flowAngle =
+            Math.sin(p.x * 0.0028 + cosmicTime * 0.65) * 1.4 +
+            Math.cos(p.y * 0.0028 - cosmicTime * 0.55) * 1.4;
+          p.vx += Math.cos(flowAngle) * 0.038 * p.depth;
+          p.vy += Math.sin(flowAngle) * 0.038 * p.depth;
+
+          // Shockwave Ring Force Interaction
+          for (let s = 0; s < MAX_SHOCKWAVES; s++) {
+            const sw = shockwavePool[s];
+            if (!sw.active) continue;
+            const dx = p.x - sw.x;
+            const dy = p.y - sw.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const band = Math.abs(dist - sw.radius);
+            if (band < 48) {
+              const push = (1.0 - band / 48) * sw.force * sw.alpha * p.response;
+              p.vx += (dx / dist) * push;
+              p.vy += (dy / dist) * push;
+            }
+          }
+
+          // Hand Gesture Forces
+          for (let hIdx = 0; hIdx < activeHands.length; hIdx++) {
+            const hand = activeHands[hIdx];
+            const targetX = (hand.gesture === 'PINCH' || hand.gesture === 'POINT') ? hand.focalX : hand.palmX;
+            const targetY = (hand.gesture === 'PINCH' || hand.gesture === 'POINT') ? hand.focalY : hand.palmY;
+
+            const dx = targetX - p.x;
+            const dy = targetY - p.y;
+            const distSq = dx * dx + dy * dy;
+            const dist = Math.sqrt(distSq) || 1;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            // Tangential vector for orbital motion
+            const tx = -ny * p.orbitFactor;
+            const ty = nx * p.orbitFactor;
+
+            if (hand.gesture === 'OPEN_PALM' || hand.gesture === 'SWIPE') {
+              // Expand Universe & Harmonic Orbital Rings scaled by Finger Spread
+              const desiredRadius = minDim * (0.14 + 0.14 * hand.spreadRatio);
+              const influenceRadius = desiredRadius * 2.35;
+
+              if (dist < influenceRadius) {
+                const falloff = 1.0 - dist / influenceRadius;
+                if (dist < desiredRadius * 0.82) {
+                  // Gently spread inner particles outward in a circular wave
+                  const repel = (1.0 - dist / (desiredRadius * 0.82)) * 1.45 * p.response;
+                  p.vx -= nx * repel;
+                  p.vy -= ny * repel;
+                } else {
+                  // Pull slightly toward harmonic orbital ring
+                  const ringPull = ((dist - desiredRadius) / influenceRadius) * 0.85 * p.response;
+                  p.vx += nx * ringPull;
+                  p.vy += ny * ringPull;
+                }
+                // Orbital drift + Magnetic palm movement drag
+                const orbitStrength = (0.45 + 0.35 * hand.spreadRatio) * falloff * p.response;
+                p.vx += tx * orbitStrength + hand.vx * 0.085 * falloff;
+                p.vy += ty * orbitStrength + hand.vy * 0.085 * falloff;
+              }
+            } else if (hand.gesture === 'FIST') {
+              // Compress into a compact, bright high-velocity orbiting energy sphere
+              const pullRadius = minDim * 0.58;
+              const coreRadius = minDim * 0.065;
+              if (dist < pullRadius) {
+                const falloff = 1.0 - dist / pullRadius;
+                if (dist > coreRadius) {
+                  const pull = (1.25 + 1.8 * falloff) * p.response;
+                  p.vx += nx * pull;
+                  p.vy += ny * pull;
+                } else {
+                  // Keep compact sphere boundary lively without collapsing to 1 pixel
+                  p.vx -= nx * 0.9;
+                  p.vy -= ny * 0.9;
+                }
+                // Rapid orbital swirl around the fist core
+                const spin = (2.2 + 2.8 * falloff) * p.response;
+                p.vx += tx * spin + hand.vx * 0.11 * falloff;
+                p.vy += ty * spin + hand.vy * 0.11 * falloff;
+              }
+            } else if (hand.gesture === 'PINCH') {
+              // Precision spiral vortex around thumb-index pinch focal point
+              const vortexRadius = minDim * 0.38;
+              const tightCore = minDim * 0.025;
+              if (dist < vortexRadius) {
+                const falloff = 1.0 - dist / vortexRadius;
+                if (dist > tightCore) {
+                  p.vx += nx * (1.1 + 1.9 * falloff) * p.response;
+                  p.vy += ny * (1.1 + 1.9 * falloff) * p.response;
+                } else {
+                  p.vx -= nx * 0.7;
+                  p.vy -= ny * 0.7;
+                }
+                // Tight spiral tangential velocity
+                p.vx += tx * (2.6 * falloff) + hand.vx * 0.1 * falloff;
+                p.vy += ty * (2.6 * falloff) + hand.vy * 0.1 * falloff;
+              }
+            } else if (hand.gesture === 'POINT') {
+              // Entrain nearby universe particles into the pointing finger stream
+              const streamRadius = minDim * 0.25;
+              if (dist < streamRadius) {
+                const falloff = 1.0 - dist / streamRadius;
+                p.vx += (hand.pointDirX * 2.1 + nx * 0.45) * falloff * p.response;
+                p.vy += (hand.pointDirY * 2.1 + ny * 0.45) * falloff * p.response;
+              }
+            }
+          }
+
+          // Two-Hand Energy Bridge Particle Entrainment
+          if (hasTwoHands) {
+            const h0 = activeHands[0];
+            // Project particle onto segment between h0 and h1
+            const apx = p.x - h0.palmX;
+            const apy = p.y - h0.palmY;
+            const proj = Math.max(0, Math.min(bridgeDist, apx * bridgeNx + apy * bridgeNy));
+            const closestX = h0.palmX + bridgeNx * proj;
+            const closestY = h0.palmY + bridgeNy * proj;
+            const dBridge = Math.hypot(p.x - closestX, p.y - closestY) || 1;
+            const bridgeBand = minDim * 0.18;
+
+            if (dBridge < bridgeBand) {
+              const factor = 1.0 - dBridge / bridgeBand;
+              // Pull toward plasma bridge axis and oscillate along it
+              p.vx += ((closestX - p.x) / dBridge) * 0.85 * factor;
+              p.vy += ((closestY - p.y) / dBridge) * 0.85 * factor;
+              const flowDir = (i % 2 === 0 ? 1 : -1);
+              p.vx += bridgeNx * flowDir * 1.15 * factor;
+              p.vy += bridgeNy * flowDir * 1.15 * factor;
+            }
+          }
+
+          // Optional Touch Pointer Fallback Interaction
+          if (!state.cameraActive && touchPointer.active) {
+            const dx = touchPointer.x - p.x;
+            const dy = touchPointer.y - p.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const maxR = minDim * 0.36;
+            if (dist < maxR) {
+              const f = 1.0 - dist / maxR;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              p.vx += (nx * 0.7 - ny * p.orbitFactor * 1.4) * f + touchPointer.vx * 0.08 * f;
+              p.vy += (ny * 0.7 + nx * p.orbitFactor * 1.4) * f + touchPointer.vy * 0.08 * f;
+            }
+          }
+
+          // Damping & Velocity Clamping
+          p.vx *= 0.945;
+          p.vy *= 0.945;
+          const speedSq = p.vx * p.vx + p.vy * p.vy;
+          if (speedSq > 324) { // Max speed 18
+            const sp = Math.sqrt(speedSq);
+            p.vx = (p.vx / sp) * 18;
+            p.vy = (p.vy / sp) * 18;
+          }
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Smooth Screen Wrap
+          if (p.x < -20) { p.x = w + 20; p.px = p.x; }
+          else if (p.x > w + 20) { p.x = -20; p.px = p.x; }
+          if (p.y < -20) { p.y = h + 20; p.py = p.y; }
+          else if (p.y > h + 20) { p.y = -20; p.py = p.y; }
+
+          // Render Particle with Velocity Trail
+          const speed = Math.sqrt(speedSq);
+          const radius = p.baseSize * scaleMult * (1.0 + Math.min(0.8, speed * 0.04));
+
+          ctx.strokeStyle = p.color;
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = Math.min(1.0, p.baseAlpha + speed * 0.04);
+
+          if (speed > 1.35) {
+            ctx.lineWidth = radius * 1.55;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(p.px - p.vx * 0.65, p.py - p.vy * 0.65);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Subtle Halo on larger/faster particles
+          if (glowMult > 0.45 && (i % 7 === 0 || speed > 5.5)) {
+            ctx.globalAlpha = 0.16 * glowMult;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, radius * 3.1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // 6. Update & Render Pooled Burst / Stream Particles
+        for (let i = 0; i < MAX_BURST_PARTICLES; i++) {
+          const bp = burstPool[i];
+          if (!bp.active) continue;
+
+          bp.life++;
+          if (bp.life >= bp.maxLife) {
+            bp.active = false;
+            continue;
+          }
+
+          bp.px = bp.x;
+          bp.py = bp.y;
+          bp.vx *= 0.96;
+          bp.vy *= 0.96;
+          bp.x += bp.vx;
+          bp.y += bp.vy;
+
+          const lifeRatio = 1.0 - bp.life / bp.maxLife;
+          ctx.strokeStyle = bp.color;
+          ctx.globalAlpha = lifeRatio * 0.95;
+          ctx.lineWidth = bp.baseSize * scaleMult * (0.5 + lifeRatio * 0.9);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(bp.px - bp.vx * 0.5, bp.py - bp.vy * 0.5);
+          ctx.lineTo(bp.x, bp.y);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // 7. FPS Tracking & Adaptive Performance Guard
+        frameCount++;
+        if (now - fpsLastCheck >= 500) {
+          state.fps = Math.round((frameCount * 1000) / (now - fpsLastCheck));
+          fpsCounter.textContent = `${state.fps} FPS`;
+          particleCounter.textContent = `${state.targetParticleCount} pts`;
+          frameCount = 0;
+          fpsLastCheck = now;
+        }
+      }
+
+      function drawHandFieldVisuals(hand, minDim, theme) {
+        const cx = (hand.gesture === 'PINCH' || hand.gesture === 'POINT') ? hand.focalX : hand.palmX;
+        const cy = (hand.gesture === 'PINCH' || hand.gesture === 'POINT') ? hand.focalY : hand.palmY;
+
+        if (hand.gesture === 'OPEN_PALM' || hand.gesture === 'SWIPE') {
+          const baseR = minDim * (0.12 + 0.12 * hand.spreadRatio);
+
+          // Soft Radial Aura
+          const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, baseR * 1.35);
+          grad.addColorStop(0, `rgba(${theme.ringColor}, 0.22)`);
+          grad.addColorStop(0.55, `rgba(${theme.bridgeColor}, 0.08)`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, baseR * 1.35, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Concentric Luminous Harmonic Rings around Palm
+          ctx.strokeStyle = `rgba(${theme.ringColor}, 0.34)`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, baseR * (0.55 + Math.sin(cosmicTime * 3) * 0.04), 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.strokeStyle = `rgba(${theme.bridgeColor}, 0.24)`;
+          ctx.beginPath();
+          ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (hand.gesture === 'FIST') {
+          // High-Energy Singularity Core
+          const coreR = minDim * (0.048 + 0.025 * hand.fistCharge);
+          const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, coreR * 2.2);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.3, `rgba(${theme.ringColor}, 0.75)`);
+          grad.addColorStop(0.7, `rgba(${theme.bridgeColor}, 0.28)`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, coreR * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (hand.gesture === 'PINCH') {
+          // Precision Pinch Vortex Focal Point
+          const pinchR = minDim * 0.032;
+          const grad = ctx.createRadialGradient(cx, cy, 1, cx, cy, pinchR * 2.5);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.4, `rgba(${theme.ringColor}, 0.8)`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, pinchR * 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (hand.gesture === 'POINT') {
+          // Glowing Fingertip Emitter Cursor
+          const tipR = minDim * 0.026;
+          const grad = ctx.createRadialGradient(cx, cy, 1, cx, cy, tipR * 2.4);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.45, `rgba(${theme.ringColor}, 0.85)`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, tipR * 2.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawTwoHandEnergyBridge(h0, h1, dist, theme) {
+        const segments = 24;
+        const dx = h1.palmX - h0.palmX;
+        const dy = h1.palmY - h0.palmY;
+        const perpX = -dy / dist;
+        const perpY = dx / dist;
+
+        for (let strand = 0; strand < 2; strand++) {
+          ctx.beginPath();
+          ctx.strokeStyle = strand === 0
+            ? `rgba(${theme.ringColor}, 0.62)`
+            : `rgba(${theme.bridgeColor}, 0.52)`;
+          ctx.lineWidth = strand === 0 ? 2.6 : 1.8;
+
+          for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const env = Math.sin(t * Math.PI); // Taper at ends
+            const wave = Math.sin(t * 10 + cosmicTime * 8 + strand * Math.PI) * (18 * env);
+            const px = h0.palmX + dx * t + perpX * wave;
+            const py = h0.palmY + dy * t + perpY * wave;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // ==========================================
+      // 10. RESIZE, VISIBILITY & UI EVENT HANDLERS
+      // ==========================================
+      function resizeCanvas() {
+        // Limit canvas DPR to 1.75 to avoid excessive GPU fill-rate drain on high-DPI Android tablets
+        state.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+        skeletonCanvas.width = 220;
+        skeletonCanvas.height = 165;
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('orientationchange', () => {
+        setTimeout(resizeCanvas, 120);
+      });
+
+      // Pause heavy work when tab/app is backgrounded and clean up camera tracks on unload
+      document.addEventListener('visibilitychange', () => {
+        state.pageHidden = document.hidden;
+      });
+
+      window.addEventListener('pagehide', () => {
+        stopCameraStream(false);
+      });
+
+      window.addEventListener('beforeunload', () => {
+        stopCameraStream(false);
+      });
+
+      // UI Button Listeners
+      startExperienceBtn.addEventListener('click', () => {
+        startCameraExperience();
+      });
+
+      exploreAmbientBtn.addEventListener('click', () => {
+        state.touchFallbackEnabled = true;
+        welcomeOverlay.classList.add('hidden');
+        updateGestureHUD('OPEN_PALM', 'Touch Fallback Mode', '👆');
+      });
+
+      stopCameraHudBtn.addEventListener('click', () => {
+        stopCameraStream(true);
+      });
+
+      drawerCameraBtn.addEventListener('click', () => {
+        if (state.cameraActive) {
+          stopCameraStream(true);
+        } else {
+          startCameraExperience();
+        }
+      });
+
+      resetUniverseBtn.addEventListener('click', () => {
+        const palette = THEMES[state.themeKey].palette;
+        for (let i = 0; i < MAX_UNIVERSE_PARTICLES; i++) {
+          universePool[i].initAmbient(state.width, state.height, palette);
+        }
+        emitRadialBurst(state.width * 0.5, state.height * 0.5, 48, 4, 14, Math.min(state.width, state.height) * 0.45);
+      });
+
+      toggleDrawerBtn.addEventListener('click', () => {
+        const isClosed = controlDrawer.classList.toggle('closed');
+        toggleDrawerBtn.setAttribute('aria-expanded', String(!isClosed));
+      });
+
+      closeDrawerBtn.addEventListener('click', () => {
+        controlDrawer.classList.add('closed');
+        toggleDrawerBtn.setAttribute('aria-expanded', 'false');
+      });
+
+      // Sliders
+      densitySlider.addEventListener('input', (e) => {
+        state.targetParticleCount = parseInt(e.target.value, 10);
+        densityValue.textContent = String(state.targetParticleCount);
+        particleCounter.textContent = `${state.targetParticleCount} pts`;
+      });
+
+      sizeSlider.addEventListener('input', (e) => {
+        state.particleScale = parseFloat(e.target.value);
+        sizeValue.textContent = `${state.particleScale.toFixed(1)}x`;
+      });
+
+      glowSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        state.glowIntensity = val / 100;
+        glowValue.textContent = `${val}%`;
+      });
+
+      // Theme Selection
+      themeGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.theme-btn');
+        if (!btn) return;
+        const themeKey = btn.dataset.theme;
+        if (!THEMES[themeKey]) return;
+
+        state.themeKey = themeKey;
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateThemeColors();
+      });
+
+      // Skeleton Overlay Toggle (both HUD quick button and Drawer button stay synced)
+      function setSkeletonMode(enabled) {
+        state.showSkeleton = enabled;
+        toggleSkeletonBtn.classList.toggle('on', enabled);
+        skeletonIndicator.textContent = enabled ? 'ON' : 'OFF';
+        quickSkeletonBtn.classList.toggle('active-toggle', enabled);
+        drawHandSkeletonOverlay();
+      }
+
+      toggleSkeletonBtn.addEventListener('click', () => {
+        setSkeletonMode(!state.showSkeleton);
+      });
+
+      quickSkeletonBtn.addEventListener('click', () => {
+        setSkeletonMode(!state.showSkeleton);
+      });
+
+      // Camera PiP Preview Toggle
+      togglePipBtn.addEventListener('click', () => {
+        state.showPip = !state.showPip;
+        togglePipBtn.classList.toggle('on', state.showPip);
+        pipIndicator.textContent = state.showPip ? 'ON' : 'OFF';
+        pipContainer.classList.toggle('hidden', !state.showPip);
+      });
+
+      // Two-Hand Mode Toggle
+      toggleTwoHandBtn.addEventListener('click', () => {
+        state.twoHandEnabled = !state.twoHandEnabled;
+        toggleTwoHandBtn.classList.toggle('on', state.twoHandEnabled);
+        twoHandIndicator.textContent = state.twoHandEnabled ? 'ON' : 'OFF';
+        if (!state.twoHandEnabled) {
+          trackedHands[1].active = false;
+          trackedHands[1].initialized = false;
+        }
+      });
+
+      // Fullscreen Button
+      fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          const req = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+          if (req) req.call(document.documentElement).catch(() => {});
+        } else {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) exit.call(document).catch(() => {});
+        }
+      });
+
+      // Optional Touch Interaction on Canvas when Camera is Off
+      canvas.addEventListener('pointerdown', (e) => {
+        if (!controlDrawer.classList.contains('closed')) {
+          controlDrawer.classList.add('closed');
+          toggleDrawerBtn.setAttribute('aria-expanded', 'false');
+        }
+        if (state.cameraActive) return;
+        touchPointer.active = true;
+        touchPointer.x = e.clientX;
+        touchPointer.y = e.clientY;
+        touchPointer.vx = 0;
+        touchPointer.vy = 0;
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (state.cameraActive || !touchPointer.active) return;
+        touchPointer.vx = e.clientX - touchPointer.x;
+        touchPointer.vy = e.clientY - touchPointer.y;
+        touchPointer.x = e.clientX;
+        touchPointer.y = e.clientY;
+      });
+
+      window.addEventListener('pointerup', () => {
+        touchPointer.active = false;
+      });
+
+      // ==========================================
+      // 11. MAIN ANIMATION LOOP STARTUP
+      // ==========================================
+      function mainAnimationLoop(now) {
+        if (!state.pageHidden) {
+          processHandTrackingFrame(now);
+          updateAndRenderUniverse(now);
+        }
+        requestAnimationFrame(mainAnimationLoop);
+      }
+
+      window.onload = function () {
+        resizeCanvas();
+        initPools();
+        checkInitialBrowserSupport();
+        requestAnimationFrame(mainAnimationLoop);
+      };
+    })();
+  </script>
+</body>
+</html>
